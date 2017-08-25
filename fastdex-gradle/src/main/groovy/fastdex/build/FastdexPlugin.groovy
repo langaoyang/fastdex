@@ -8,10 +8,12 @@ import fastdex.build.task.FastdexCleanTask
 import fastdex.build.task.FastdexCreateMaindexlistFileTask
 import fastdex.build.task.FastdexInstantRunTask
 import fastdex.build.task.FastdexManifestTask
+import fastdex.build.task.FastdexPatchTask
 import fastdex.build.task.FastdexResourceIdTask
 import fastdex.build.transform.FastdexJarMergingTransform
 import fastdex.build.util.FastdexBuildListener
 import fastdex.build.util.Constants
+import fastdex.build.util.FastdexInstantRun
 import fastdex.build.util.GradleUtils
 import fastdex.build.variant.FastdexVariant
 import org.gradle.api.GradleException
@@ -83,6 +85,7 @@ class FastdexPlugin implements Plugin<Project> {
                     // Not in instant run mode, continue.
                 }
                 FastdexVariant fastdexVariant = new FastdexVariant(project,variant)
+                fastdexVariant.fastdexInstantRun = new FastdexInstantRun(fastdexVariant)
 
                 boolean proguardEnable = variant.getBuildType().buildType.minifyEnabled
                 //TODO 暂时忽略开启混淆的buildType(目前的快照对比方案 无法映射java文件的类名和混淆后的class的类名)
@@ -119,6 +122,10 @@ class FastdexPlugin implements Plugin<Project> {
                     //let applyResourceTask run after manifestTask
                     applyResourceTask.mustRunAfter manifestTask
                     variantOutput.processResources.dependsOn applyResourceTask
+
+                    variantOutput.processResources.doLast {
+                        fastdexVariant.fastdexInstantRun.onResourceChanged()
+                    }
 
                     Task prepareTask = project.tasks.create("fastdexPrepareFor${variantName}", FastdexPrepareTask)
                     prepareTask.fastdexVariant = fastdexVariant
@@ -161,18 +168,14 @@ class FastdexPlugin implements Plugin<Project> {
                         collectMultiDexComponentsTask.enabled = false
                     }
 
-                    FastdexInstantRunTask fastdexInstantRunTask = project.tasks.create("fastdex${variantName}",FastdexInstantRunTask)
-                    fastdexInstantRunTask.fastdexVariant = fastdexVariant
-                    fastdexInstantRunTask.resourceApFile = variantOutput.processResources.packageOutputFile
-                    fastdexInstantRunTask.resDir = variantOutput.processResources.resDir
-                    fastdexInstantRunTask.dependsOn variant.assemble
-                    fastdexVariant.fastdexInstantRunTask = fastdexInstantRunTask
-
-//                    getTransformClassesWithDex(project,variantName).doLast {
-//                        fastdexInstantRunTask.onDexTransformComplete()
-//                    }
+                    FastdexPatchTask fastdexPatchTask = project.tasks.create("fastdexPatchFor${variantName}", FastdexPatchTask)
+                    fastdexPatchTask.fastdexVariant = fastdexVariant
 
                     Task packageTask = getPackageTask(project, variantName)
+                    fastdexPatchTask.mustRunAfter getTransformClassesWithDex(project,variantName)
+                    packageTask.dependsOn fastdexPatchTask
+
+
                     if (packageTask != null) {
                         project.logger.error("==fastdex find package task: " + packageTask.name)
 
@@ -180,6 +183,13 @@ class FastdexPlugin implements Plugin<Project> {
                             fastdexVariant.copyMetaInfo2Assets()
                         }
                     }
+
+                    FastdexInstantRunTask fastdexInstantRunTask = project.tasks.create("fastdex${variantName}",FastdexInstantRunTask)
+                    fastdexInstantRunTask.fastdexVariant = fastdexVariant
+                    fastdexInstantRunTask.resourceApFile = variantOutput.processResources.packageOutputFile
+                    fastdexInstantRunTask.resDir = variantOutput.processResources.resDir
+                    fastdexInstantRunTask.dependsOn variant.assemble
+                    fastdexVariant.fastdexInstantRunTask = fastdexInstantRunTask
 
                     project.getGradle().getTaskGraph().addTaskExecutionGraphListener(new TaskExecutionGraphListener() {
                         @Override

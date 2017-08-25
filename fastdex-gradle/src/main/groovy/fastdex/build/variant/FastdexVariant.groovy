@@ -3,6 +3,7 @@ package fastdex.build.variant
 import fastdex.build.extension.FastdexExtension
 import fastdex.build.task.FastdexInstantRunTask
 import fastdex.build.util.Constants
+import fastdex.build.util.FastdexInstantRun
 import fastdex.common.utils.SerializeUtils
 import fastdex.build.util.LibDependency
 import fastdex.build.util.MetaInfo
@@ -37,6 +38,7 @@ public class FastdexVariant {
     boolean executedJarMerge
     boolean executedDexTransform
     MetaInfo metaInfo
+    FastdexInstantRun fastdexInstantRun
     FastdexInstantRunTask fastdexInstantRunTask
 
     FastdexVariant(Project project, Object androidVariant) {
@@ -157,7 +159,7 @@ public class FastdexVariant {
         new Thread(new Runnable() {
             @Override
             void run() {
-                fastdexInstantRunTask.preparedDevice()
+                fastdexInstantRun.preparedDevice()
             }
         }).start()
     }
@@ -209,6 +211,7 @@ public class FastdexVariant {
         }
         copyMetaInfo2Assets()
         projectSnapshoot.onDexGenerateSuccess(nornalBuild,dexMerge)
+        fastdexInstantRun.onSourceChanged()
 
         fastdexInstantRunTask.onDexTransformComplete()
     }
