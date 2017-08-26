@@ -84,8 +84,14 @@ class FastdexPlugin implements Plugin<Project> {
                 } catch (UnknownTaskException e) {
                     // Not in instant run mode, continue.
                 }
+
                 FastdexVariant fastdexVariant = new FastdexVariant(project,variant)
                 fastdexVariant.fastdexInstantRun = new FastdexInstantRun(fastdexVariant)
+
+                FastdexInstantRun fastdexInstantRun = fastdexVariant.fastdexInstantRun
+                fastdexInstantRun.resourceApFile = variantOutput.processResources.packageOutputFile
+                fastdexInstantRun.resDir = variantOutput.processResources.resDir
+
 
                 boolean proguardEnable = variant.getBuildType().buildType.minifyEnabled
                 //TODO 暂时忽略开启混淆的buildType(目前的快照对比方案 无法映射java文件的类名和混淆后的class的类名)
@@ -168,11 +174,17 @@ class FastdexPlugin implements Plugin<Project> {
                         collectMultiDexComponentsTask.enabled = false
                     }
 
+                    Task mergeAssetsTask = getMergeAssetsTask(project, variantName)
+                    mergeAssetsTask.doLast {
+                        fastdexVariant.fastdexInstantRun.onAssetsChanged()
+                    }
+
                     FastdexPatchTask fastdexPatchTask = project.tasks.create("fastdexPatchFor${variantName}", FastdexPatchTask)
                     fastdexPatchTask.fastdexVariant = fastdexVariant
 
                     Task packageTask = getPackageTask(project, variantName)
                     fastdexPatchTask.mustRunAfter getTransformClassesWithDex(project,variantName)
+                    fastdexPatchTask.mustRunAfter mergeAssetsTask
                     packageTask.dependsOn fastdexPatchTask
 
 
@@ -186,8 +198,7 @@ class FastdexPlugin implements Plugin<Project> {
 
                     FastdexInstantRunTask fastdexInstantRunTask = project.tasks.create("fastdex${variantName}",FastdexInstantRunTask)
                     fastdexInstantRunTask.fastdexVariant = fastdexVariant
-                    fastdexInstantRunTask.resourceApFile = variantOutput.processResources.packageOutputFile
-                    fastdexInstantRunTask.resDir = variantOutput.processResources.resDir
+
                     fastdexInstantRunTask.dependsOn variant.assemble
                     fastdexVariant.fastdexInstantRunTask = fastdexInstantRunTask
 
@@ -233,6 +244,16 @@ class FastdexPlugin implements Plugin<Project> {
             }
         }
     }
+
+    Task getMergeAssetsTask(Project project, String variantName) {
+        String taskName = "merge${variantName}Assets"
+        try {
+            return  project.tasks.getByName(taskName)
+        } catch (Throwable e) {
+            return null
+        }
+    }
+
 
     Task getPackageTask(Project project, String variantName) {
         String taskName = "package${variantName}"

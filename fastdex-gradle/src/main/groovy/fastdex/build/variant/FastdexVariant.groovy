@@ -212,8 +212,6 @@ public class FastdexVariant {
         copyMetaInfo2Assets()
         projectSnapshoot.onDexGenerateSuccess(nornalBuild,dexMerge)
         fastdexInstantRun.onSourceChanged()
-
-        fastdexInstantRunTask.onDexTransformComplete()
     }
 
     def saveMetaInfo() {

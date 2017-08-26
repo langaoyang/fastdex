@@ -15,11 +15,13 @@
  */
 package fastdex.runtime.fd;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static fastdex.common.fd.ProtocolConstants.MESSAGE_EOF;
 import static fastdex.common.fd.ProtocolConstants.MESSAGE_PATCHES;
 import static fastdex.common.fd.ProtocolConstants.MESSAGE_PATH_CHECKSUM;
 import static fastdex.common.fd.ProtocolConstants.MESSAGE_PATH_EXISTS;
 import static fastdex.common.fd.ProtocolConstants.MESSAGE_PING;
+import static fastdex.common.fd.ProtocolConstants.MESSAGE_PING_AND_SHOW_TOAST;
 import static fastdex.common.fd.ProtocolConstants.MESSAGE_RESTART_ACTIVITY;
 import static fastdex.common.fd.ProtocolConstants.MESSAGE_SHOW_TOAST;
 import static fastdex.common.fd.ProtocolConstants.PROTOCOL_IDENTIFIER;
@@ -31,18 +33,26 @@ import static fastdex.common.fd.ProtocolConstants.UPDATE_MODE_WARM_SWAP;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.res.AssetManager;
+import android.content.res.Resources;
 import android.net.LocalServerSocket;
 import android.net.LocalSocket;
 import android.os.Handler;
+import android.text.TextUtils;
 import android.util.Log;
+import android.view.ContextThemeWrapper;
+
 import fastdex.common.ShareConstants;
 import fastdex.common.utils.FileUtils;
 import fastdex.runtime.Constants;
 import fastdex.runtime.fastdex.Fastdex;
+import fastdex.runtime.loader.ResourcePatcher;
+
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Timer;
@@ -245,6 +255,30 @@ public class Server {
                         output.writeInt(android.os.Process.myPid());
                         if (Log.isLoggable(Logging.LOG_TAG, Log.VERBOSE)) {
                             Log.v(Logging.LOG_TAG, "Received Ping message from the IDE; " + "returned active = " + active);
+                        }
+                        continue;
+                    }
+
+                    case MESSAGE_PING_AND_SHOW_TOAST: {
+                        // Send an "ack" back to the IDE.
+                        // The value of the boolean is true only when the app is in the
+                        // foreground.
+                        boolean active = Restarter.getForegroundActivity(context) != null;
+                        output.writeBoolean(active);
+
+                        long buildMillis = fastdex.getRuntimeMetaInfo().getBuildMillis();
+                        output.writeLong(buildMillis);
+                        String variantName = fastdex.getRuntimeMetaInfo().getVariantName();
+                        output.writeUTF(variantName);
+                        output.writeInt(android.os.Process.myPid());
+                        if (Log.isLoggable(Logging.LOG_TAG, Log.VERBOSE)) {
+                            Log.v(Logging.LOG_TAG, "Received Ping message from the IDE; " + "returned active = " + active);
+                        }
+
+                        String text = input.readUTF();
+
+                        if (text != null && !TextUtils.isEmpty(text.trim())) {
+                            showToast(text,context);
                         }
                         continue;
                     }
@@ -480,13 +514,12 @@ public class Server {
 
             File resDir = new File(Fastdex.get(context).getRuntimeMetaInfo().getPreparedPatchPath(),Constants.RES_DIR);
             File file = new File(resDir, ShareConstants.RESOURCE_APK_FILE_NAME);
-            if (Log.isLoggable(Logging.LOG_TAG, Log.VERBOSE)) {
-                Log.v(Logging.LOG_TAG, "About to update resource file=" + file +
-                        ", activities=" + activities);
-            }
+            Log.v(Logging.LOG_TAG, "About to update resource file=" + file +
+                    ", activities=" + activities);
 
-            if (file != null) {
+            if (FileUtils.isLegalFile(file)) {
                 String resources = file.getPath();
+
                 MonkeyPatcher.monkeyPatchExistingResources(context, resources, activities);
             } else {
                 Log.e(Logging.LOG_TAG, "No resource file found to apply");

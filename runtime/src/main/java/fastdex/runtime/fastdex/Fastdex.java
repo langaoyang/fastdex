@@ -76,12 +76,12 @@ public class Fastdex {
             boolean sourceChanged = false;
 
             if (metaInfo == null) {
+                File metaInfoFile = new File(fastdexDirectory, ShareConstants.META_INFO_FILENAME);
+                FileUtils.cleanDir(patchDirectory);
+
                 assetsMetaInfo.setLastSourceModified(lastSourceModified);
                 assetsMetaInfo.save(this);
                 metaInfo = assetsMetaInfo;
-                File metaInfoFile = new File(fastdexDirectory, ShareConstants.META_INFO_FILENAME);
-                FileUtils.cleanDir(fastdexDirectory);
-                FileUtils.cleanDir(tempDirectory);
 
                 if (!FileUtils.isLegalFile(metaInfoFile)) {
                     throw new FastdexRuntimeException("save meta-info fail: " + metaInfoFile.getAbsolutePath());
@@ -111,7 +111,7 @@ public class Fastdex {
                     Log.d(Fastdex.LOG_TAG,"\nmeta-info source changed, clean patch info\n");
                 }
 
-                FileUtils.cleanDir(fastdexDirectory);
+                FileUtils.cleanDir(patchDirectory);
                 FileUtils.cleanDir(tempDirectory);
 
                 assetsMetaInfo.setLastSourceModified(lastSourceModified);
