@@ -3,9 +3,7 @@ package fastdex.runtime.fastdex;
 import android.content.Context;
 import android.text.TextUtils;
 import android.util.Log;
-
 import org.json.JSONObject;
-
 import java.io.File;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -201,6 +199,10 @@ public class Fastdex {
 
     public File getTempDirectory() {
         return tempDirectory;
+    }
+
+    public File getPatchDirectory() {
+        return patchDirectory;
     }
 
     public RuntimeMetaInfo getRuntimeMetaInfo() {

@@ -29,6 +29,12 @@ public class RuntimeMetaInfo {
 
     private long lastSourceModified;
 
+    private int mergedDexVersion;
+
+    private int patchDexVersion;
+
+    private int resourcesVersion;
+
     public long getBuildMillis() {
         return buildMillis;
     }
@@ -77,6 +83,30 @@ public class RuntimeMetaInfo {
         this.lastSourceModified = lastSourceModified;
     }
 
+    public int getMergedDexVersion() {
+        return mergedDexVersion;
+    }
+
+    public void setMergedDexVersion(int mergedDexVersion) {
+        this.mergedDexVersion = mergedDexVersion;
+    }
+
+    public int getPatchDexVersion() {
+        return patchDexVersion;
+    }
+
+    public void setPatchDexVersion(int patchDexVersion) {
+        this.patchDexVersion = patchDexVersion;
+    }
+
+    public int getResourcesVersion() {
+        return resourcesVersion;
+    }
+
+    public void setResourcesVersion(int resourcesVersion) {
+        this.resourcesVersion = resourcesVersion;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -107,6 +137,10 @@ public class RuntimeMetaInfo {
                 jObj.put("patchPath",patchPath);
                 jObj.put("preparedPatchPath",preparedPatchPath);
                 jObj.put("lastSourceModified",lastSourceModified);
+
+                jObj.put("mergedDexVersion",mergedDexVersion);
+                jObj.put("patchDexVersion",patchDexVersion);
+                jObj.put("resourcesVersion",resourcesVersion);
             } catch (JSONException e) {
                 e.printStackTrace();
             }
@@ -164,6 +198,9 @@ public class RuntimeMetaInfo {
             metaInfo.preparedPatchPath = jObj.optString("preparedPatchPath");
             metaInfo.lastSourceModified = jObj.optLong("lastSourceModified");
 
+            metaInfo.mergedDexVersion = jObj.optInt("mergedDexVersion");
+            metaInfo.patchDexVersion = jObj.optInt("patchDexVersion");
+            metaInfo.resourcesVersion = jObj.optInt("resourcesVersion");
             return metaInfo;
         } catch (Exception e) {
             e.printStackTrace();

@@ -442,7 +442,11 @@ public class Server {
 
         Fastdex fastdex = Fastdex.get(context);
         File workDir = new File(fastdex.getTempDirectory(),System.currentTimeMillis() + "-" + UUID.randomUUID().toString());
+        File patchDir = fastdex.getPatchDirectory();
         try {
+            if (FileUtils.dirExists(patchDir.getAbsolutePath())) {
+                FileUtils.copyDirectoryOneLocationToAnotherLocation(patchDir,workDir);
+            }
             for (ApplicationPatch change : changes) {
                 String path = change.getPath();
                 if (path.endsWith(Constants.DEX_SUFFIX)) {
@@ -455,6 +459,7 @@ public class Server {
             fastdex.getRuntimeMetaInfo().setPreparedPatchPath(workDir.getAbsolutePath());
             fastdex.getRuntimeMetaInfo().save(fastdex);
         } catch (Throwable e) {
+            e.printStackTrace();
             return UPDATE_MODE_NONE;
         }
         return updateMode;
@@ -465,7 +470,9 @@ public class Server {
             Log.v(Logging.LOG_TAG, "Received resource changes (" + path + ")");
         }
 
-        FileUtils.write2file(patch.getBytes(),new File(workDir, Constants.RES_DIR + "/" + Constants.RESOURCE_APK_FILE_NAME));
+        File resourcesApk = new File(workDir, Constants.RES_DIR + "/" + Constants.RESOURCE_APK_FILE_NAME);
+        FileUtils.write2file(patch.getBytes(),resourcesApk);
+
         //noinspection ResourceType
         updateMode = Math.max(updateMode, UPDATE_MODE_WARM_SWAP);
         return updateMode;

@@ -34,6 +34,8 @@ public class MetaInfo {
 
     public int patchDexVersion
 
+    public int resourcesVersion
+
     public boolean active
 
 

@@ -7,6 +7,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -268,6 +269,21 @@ public class FileUtils {
 
     public static final void copyDir(File sourceDir, File destDir) throws IOException {
         copyDir(sourceDir,destDir,null);
+    }
+
+
+    public static void copyDirectoryOneLocationToAnotherLocation(File sourceLocation, File targetLocation) throws IOException {
+        if (sourceLocation.isDirectory()) {
+            if (!targetLocation.exists()) {
+                targetLocation.mkdir();
+            }
+            String[] children = sourceLocation.list();
+            for (int i = 0; i < sourceLocation.listFiles().length; i++) {
+                copyDirectoryOneLocationToAnotherLocation(new File(sourceLocation, children[i]), new File(targetLocation, children[i]));
+            }
+        } else {
+            copyFileUsingStream(sourceLocation,targetLocation);
+        }
     }
 
 
