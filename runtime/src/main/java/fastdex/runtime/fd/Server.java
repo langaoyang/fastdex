@@ -533,23 +533,23 @@ public class Server {
                 updateMode = UPDATE_MODE_COLD_SWAP;
             }
         }
-        else {
-            handler.post(new Runnable() {
-                @Override
-                public void run() {
-                    for (Activity activity : activities) {
-                        try {
-                            activity.finish();
-                        } catch (Throwable e) {
-
-                        }
-                    }
-
-                    android.os.Process.killProcess(android.os.Process.myPid());
-                    System.exit(0);
-                }
-            });
-        }
+//        else {
+//            handler.post(new Runnable() {
+//                @Override
+//                public void run() {
+//                    for (Activity activity : activities) {
+//                        try {
+//                            activity.finish();
+//                        } catch (Throwable e) {
+//
+//                        }
+//                    }
+//
+//                    android.os.Process.killProcess(android.os.Process.myPid());
+//                    System.exit(0);
+//                }
+//            });
+//        }
 
         Activity activity = Restarter.getForegroundActivity(context);
         if (updateMode == UPDATE_MODE_WARM_SWAP) {
