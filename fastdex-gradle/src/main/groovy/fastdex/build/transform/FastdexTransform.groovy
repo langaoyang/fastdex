@@ -89,8 +89,6 @@ class FastdexTransform extends TransformProxy {
                         File mergedPatchDex = new File(mergedPatchDexDir,Constants.CLASSES_DEX)
                         //更新patch.dex
                         DexOperation.mergeDex(fastdexVariant,mergedPatchDex,patchDex,mergedPatchDex)
-                        fastdexVariant.metaInfo.mergedDexVersion += 1
-                        fastdexVariant.metaInfo.save(fastdexVariant)
 
                         FileUtils.cleanDir(dexOutputDir)
                         FileUtils.copyDir(cacheDexDir,dexOutputDir,Constants.DEX_SUFFIX)
@@ -118,6 +116,8 @@ class FastdexTransform extends TransformProxy {
                         //patchDex.renameTo(new File(mergedPatchDexDir,Constants.CLASSES_DEX))
                     }
 
+                    fastdexVariant.metaInfo.mergedDexVersion += 1
+                    fastdexVariant.metaInfo.save(fastdexVariant)
                     fastdexVariant.onDexGenerateSuccess(false,true)
                 }
                 else {
