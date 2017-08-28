@@ -45,9 +45,17 @@ public class FastdexPatchTask extends DefaultTask {
         ServiceCommunicator serviceCommunicator = new ServiceCommunicator(packageName)
         MetaInfo runtimeMetaInfo = null
 
+        boolean manifestChanged = fastdexInstantRun.manifestChanged
         boolean resourceChanged = fastdexInstantRun.resourceChanged
         boolean sourceChanged = fastdexInstantRun.sourceChanged
         boolean assetsChanged = fastdexInstantRun.assetsChanged
+
+        boolean sendResourcesApk = false
+        boolean sendPatchDex = false
+        boolean sendMergedDex = false
+
+        project.logger.error("==fastdex pc   resourceChanged: ${fastdexInstantRun.resourceChanged} , assetsChanged: ${fastdexInstantRun.assetsChanged}, sourceChanged: ${fastdexInstantRun.sourceChanged}, manifestChanged: ${manifestChanged}")
+
         try {
             runtimeMetaInfo = serviceCommunicator.talkToService(fastdexInstantRun.device, new Communicator<MetaInfo>() {
                 @Override
@@ -58,7 +66,6 @@ public class FastdexPatchTask extends DefaultTask {
                     info.active = input.readBoolean()
                     info.buildMillis = input.readLong()
                     info.variantName = input.readUTF()
-                    //int appPid = input.readInt()
 
                     if (fastdexVariant.metaInfo.buildMillis != info.buildMillis) {
                         fastdexVariant.project.logger.error("==fastdex buildMillis not equal, install apk")
@@ -68,6 +75,24 @@ public class FastdexPatchTask extends DefaultTask {
                         fastdexVariant.project.logger.error("==variantName not equal, install apk")
                         throw new JumpException()
                     }
+
+                    info.resourcesVersion = input.readInt()
+                    info.patchDexVersion = input.readInt()
+                    info.mergedDexVersion = input.readInt()
+
+                    if (resourceChanged || assetsChanged || fastdexVariant.metaInfo.resourcesVersion != info.resourcesVersion) {
+                        sendResourcesApk = true
+                    }
+
+                    if (sourceChanged || fastdexVariant.metaInfo.patchDexVersion != info.patchDexVersion) {
+                        sendPatchDex = true
+                    }
+
+                    if (fastdexVariant.metaInfo.mergedDexVersion != info.mergedDexVersion) {
+                        sendMergedDex = true
+                    }
+
+                    nothingChanged = !sendResourcesApk && !sendPatchDex && !sendMergedDex
 
                     if (nothingChanged) {
                         output.writeUTF("Source and resource not changed.")
@@ -90,28 +115,34 @@ public class FastdexPatchTask extends DefaultTask {
         }
         project.logger.error("==fastdex receive: ${runtimeMetaInfo}")
 
+        project.logger.error("==fastdex app  sendResourcesApk: ${sendResourcesApk} , sendPatchDex: ${sendPatchDex}, sendMergedDex: ${sendMergedDex}")
+
         if (nothingChanged) {
             fastdexInstantRun.setInstallApk(false)
+
+            if (runtimeMetaInfo != null && !runtimeMetaInfo.active) {
+                //TODO 拉起app，暂时先重启
+                killApp()
+                fastdexInstantRun.startBootActivity()
+            }
             return
         }
-
-
-        File resourcesApk = fastdexInstantRun.getResourcesApk()
         File mergedPatchDex = FastdexUtils.getMergedPatchDex(fastdexVariant.project,fastdexVariant.variantName)
         File patchDex = FastdexUtils.getPatchDexFile(fastdexVariant.project,fastdexVariant.variantName)
+        File resourcesApk = null
 
         int changeCount = 0
-        if (resourceChanged || assetsChanged) {
+        if (sendResourcesApk) {
+            resourcesApk = fastdexInstantRun.getResourcesApk()
             changeCount += 1
         }
 
-        if (sourceChanged) {
-            if (FileUtils.isLegalFile(mergedPatchDex)) {
-                changeCount += 1
-            }
-            if (FileUtils.isLegalFile(patchDex)) {
-                changeCount += 1
-            }
+        if (sendPatchDex) {
+            changeCount += 1
+        }
+
+        if (sendMergedDex) {
+            changeCount += 1
         }
 
         long start = System.currentTimeMillis()
@@ -123,29 +154,31 @@ public class FastdexPatchTask extends DefaultTask {
                     output.writeLong(0L)
                     output.writeInt(changeCount)
 
-                    if (resourceChanged || assetsChanged) {
-                        project.logger.error("==fastdex write ${ShareConstants.RESOURCE_APK_FILE_NAME}")
-                        output.writeUTF(ShareConstants.RESOURCE_APK_FILE_NAME)
+                    if (sendResourcesApk) {
+                        String path = fastdexVariant.metaInfo.resourcesVersion + ShareConstants.RES_SPLIT_STR + ShareConstants.RESOURCE_APK_FILE_NAME
+                        project.logger.error("==fastdex write ${resourcesApk} ,path: " + path)
+                        output.writeUTF(path)
                         byte[] bytes = FileUtils.readContents(resourcesApk)
                         output.writeInt(bytes.length)
                         output.write(bytes)
                     }
 
-                    if (sourceChanged) {
-                        if (FileUtils.isLegalFile(mergedPatchDex)) {
-                            project.logger.error("==fastdex write ${mergedPatchDex}")
-                            output.writeUTF(ShareConstants.MERGED_PATCH_DEX)
-                            byte[] bytes = FileUtils.readContents(mergedPatchDex)
-                            output.writeInt(bytes.length)
-                            output.write(bytes)
-                        }
-                        if (FileUtils.isLegalFile(patchDex)) {
-                            project.logger.error("==fastdex write ${patchDex}")
-                            output.writeUTF(ShareConstants.PATCH_DEX)
-                            byte[] bytes = FileUtils.readContents(patchDex)
-                            output.writeInt(bytes.length)
-                            output.write(bytes)
-                        }
+                    if (sendPatchDex) {
+                        String path = fastdexVariant.metaInfo.patchDexVersion + ShareConstants.RES_SPLIT_STR + ShareConstants.PATCH_DEX
+                        project.logger.error("==fastdex write ${patchDex}, path: " + path)
+                        output.writeUTF(path)
+                        byte[] bytes = FileUtils.readContents(patchDex)
+                        output.writeInt(bytes.length)
+                        output.write(bytes)
+                    }
+
+                    if (sendMergedDex) {
+                        String path = fastdexVariant.metaInfo.mergedDexVersion + ShareConstants.RES_SPLIT_STR + ShareConstants.MERGED_PATCH_DEX
+                        project.logger.error("==fastdex write ${mergedPatchDex} ,path: " + path)
+                        output.writeUTF(path)
+                        byte[] bytes = FileUtils.readContents(mergedPatchDex)
+                        output.writeInt(bytes.length)
+                        output.write(bytes)
                     }
 
                     output.writeInt(ProtocolConstants.UPDATE_MODE_WARM_SWAP)
@@ -183,8 +216,6 @@ public class FastdexPatchTask extends DefaultTask {
 
             e.printStackTrace()
         }
-
-        println("##############哈哈哈 resourceChanged: ${fastdexInstantRun.resourceChanged}, sourceChanged: ${fastdexInstantRun.sourceChanged}, manifestChanged: ${fastdexInstantRun.manifestChanged}, assetsChanged: ${fastdexInstantRun.assetsChanged}")
     }
 
     def killApp() {

@@ -15,6 +15,7 @@ public class FastdexInstantRun {
     String resDir
 
     Project project
+    boolean fromFastdexInstantRun
     boolean manifestChanged
     boolean resourceChanged
     boolean sourceChanged
@@ -121,9 +122,11 @@ public class FastdexInstantRun {
     }
 
     def isInstantRunBuild() {
-        String launchTaskName = project.gradle.startParameter.taskRequests.get(0).args.get(0).toString()
-        boolean result = launchTaskName.endsWith("fastdex${fastdexVariant.variantName}")
-        return result
+//        String launchTaskName = project.gradle.startParameter.taskRequests.get(0).args.get(0).toString()
+//        boolean result = launchTaskName.endsWith("fastdex${fastdexVariant.variantName}")
+//        return result
+
+        return fromFastdexInstantRun
     }
 
     def nothingChanged() {
@@ -146,8 +149,11 @@ public class FastdexInstantRun {
 
     def getResourcesApk() {
         File resourcesApk = FastdexUtils.getResourcesApk(project,fastdexVariant.variantName)
-
-        generateResourceApk(resourcesApk)
+        if (resourceChanged || assetsChanged || !FileUtils.isLegalFile(resourcesApk)) {
+            generateResourceApk(resourcesApk)
+            fastdexVariant.metaInfo.resourcesVersion += 1
+            fastdexVariant.metaInfo.save(fastdexVariant)
+        }
         return resourcesApk
     }
 

@@ -143,17 +143,19 @@ public class Fastdex {
             FileUtils.deleteDir(patchDir);
             preparedPatchDir.renameTo(patchDir);
 
+            trimPreparedPatchDir(runtimeMetaInfo,patchDir);
+
             runtimeMetaInfo.setLastPatchPath(runtimeMetaInfo.getPatchPath());
             runtimeMetaInfo.setPreparedPatchPath(null);
             runtimeMetaInfo.setPatchPath(patchDir.getAbsolutePath());
             runtimeMetaInfo.save(this);
+
+            Log.d(LOG_TAG,"apply new patch: " + runtimeMetaInfo.toJson());
         }
 
         if (TextUtils.isEmpty(runtimeMetaInfo.getPatchPath())) {
             return;
         }
-
-
 
         final File dexDirectory = new File(new File(runtimeMetaInfo.getPatchPath()),Constants.DEX_DIR);
         final File optDirectory = new File(new File(runtimeMetaInfo.getPatchPath()),Constants.OPT_DIR);
@@ -191,6 +193,57 @@ public class Fastdex {
         }
 
         Server.showToast("fastdex, apply patch successful",applicationContext);
+    }
+
+    private void trimPreparedPatchDir(RuntimeMetaInfo runtimeMetaInfo, File patchDir) {
+        //把文件名中的资源版本号提取出来
+        final File dexDirectory = new File(patchDir,Constants.DEX_DIR);
+        final File resourceDirectory = new File(patchDir,Constants.RES_DIR);
+
+        File[] resFiles = resourceDirectory.listFiles();
+        if (resFiles != null) {
+            for (File f : resFiles) {
+                if (Server.isResourcePath(f.getName())) {
+                    String[] infoArr = f.getName().split(ShareConstants.RES_SPLIT_STR);
+
+                    String version = infoArr[0];
+                    String path = infoArr[1];
+
+                    File target = new File(f.getParentFile(),path);
+                    f.renameTo(target);
+
+                    Log.d(LOG_TAG,"file: " + f + " renameTo: " + target);
+                    if (path.equals(Constants.RESOURCE_APK_FILE_NAME)) {
+                        runtimeMetaInfo.setResourcesVersion(Integer.parseInt(version));
+                    }
+                    break;
+                }
+            }
+        }
+
+        File[] dexFiles = dexDirectory.listFiles();
+        if (dexFiles != null) {
+            for (File f : dexFiles) {
+                if (Server.isDexPath(f.getName())) {
+                    String[] infoArr = f.getName().split(ShareConstants.RES_SPLIT_STR);
+
+                    String version = infoArr[0];
+                    String path = infoArr[1];
+
+                    File target = new File(f.getParentFile(),path);
+                    f.renameTo(target);
+
+                    Log.d(LOG_TAG,"file: " + f + " renameTo: " + target);
+                    if (path.equals(Constants.MERGED_PATCH_DEX)) {
+                        runtimeMetaInfo.setMergedDexVersion(Integer.parseInt(version));
+                    }
+                    else if (path.equals(Constants.PATCH_DEX)) {
+                        runtimeMetaInfo.setPatchDexVersion(Integer.parseInt(version));
+                    }
+                    break;
+                }
+            }
+        }
     }
 
     public File getFastdexDirectory() {

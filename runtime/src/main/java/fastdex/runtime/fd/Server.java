@@ -15,7 +15,6 @@
  */
 package fastdex.runtime.fd;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static fastdex.common.fd.ProtocolConstants.MESSAGE_EOF;
 import static fastdex.common.fd.ProtocolConstants.MESSAGE_PATCHES;
 import static fastdex.common.fd.ProtocolConstants.MESSAGE_PATH_CHECKSUM;
@@ -33,26 +32,21 @@ import static fastdex.common.fd.ProtocolConstants.UPDATE_MODE_WARM_SWAP;
 
 import android.app.Activity;
 import android.content.Context;
-import android.content.res.AssetManager;
-import android.content.res.Resources;
 import android.net.LocalServerSocket;
 import android.net.LocalSocket;
 import android.os.Handler;
 import android.text.TextUtils;
 import android.util.Log;
-import android.view.ContextThemeWrapper;
-
 import fastdex.common.ShareConstants;
 import fastdex.common.utils.FileUtils;
 import fastdex.runtime.Constants;
 import fastdex.runtime.fastdex.Fastdex;
-import fastdex.runtime.loader.ResourcePatcher;
+import fastdex.runtime.fastdex.RuntimeMetaInfo;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Timer;
@@ -266,11 +260,15 @@ public class Server {
                         boolean active = Restarter.getForegroundActivity(context) != null;
                         output.writeBoolean(active);
 
-                        long buildMillis = fastdex.getRuntimeMetaInfo().getBuildMillis();
-                        output.writeLong(buildMillis);
-                        String variantName = fastdex.getRuntimeMetaInfo().getVariantName();
-                        output.writeUTF(variantName);
-                        output.writeInt(android.os.Process.myPid());
+                        RuntimeMetaInfo runtimeMetaInfo = fastdex.getRuntimeMetaInfo();
+
+                        output.writeLong(runtimeMetaInfo.getBuildMillis());
+                        output.writeUTF(runtimeMetaInfo.getVariantName());
+
+                        output.writeInt(runtimeMetaInfo.getResourcesVersion());
+                        output.writeInt(runtimeMetaInfo.getPatchDexVersion());
+                        output.writeInt(runtimeMetaInfo.getMergedDexVersion());
+
                         if (Log.isLoggable(Logging.LOG_TAG, Log.VERBOSE)) {
                             Log.v(Logging.LOG_TAG, "Received Ping message from the IDE; " + "returned active = " + active);
                         }
@@ -309,11 +307,11 @@ public class Server {
                         output.writeBoolean(true);
                         restart(updateMode,hasDex, hasResources, showToast);
 
-                        try {
-                            Thread.sleep(300);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
+//                        try {
+//                            Thread.sleep(300);
+//                        } catch (InterruptedException e) {
+//                            e.printStackTrace();
+//                        }
 
                         output.writeBoolean(true);
                         continue;
@@ -384,8 +382,9 @@ public class Server {
         }
     }
 
-    private static boolean isResourcePath(String path) {
-        return path.equals(Constants.RESOURCE_APK_FILE_NAME) || path.equals(Paths.RESOURCE_FILE_NAME) || path.startsWith("res/");
+    public static boolean isResourcePath(String path) {
+        return path.endsWith(Constants.RES_SPLIT_STR + Constants.RESOURCE_APK_FILE_NAME);
+        //return path.equals(Constants.RESOURCE_APK_FILE_NAME) || path.equals(Paths.RESOURCE_FILE_NAME) || path.startsWith("res/");
     }
 
     private static boolean hasResources(List<ApplicationPatch> changes) {
@@ -401,8 +400,8 @@ public class Server {
         return false;
     }
 
-    private static boolean isDexPath(String path) {
-        return path.endsWith(Constants.DEX_SUFFIX);
+    public static boolean isDexPath(String path) {
+        return path.endsWith(Constants.RES_SPLIT_STR + Constants.PATCH_DEX) || path.endsWith(Constants.RES_SPLIT_STR + Constants.MERGED_PATCH_DEX);
     }
 
     private static boolean hasDex(List<ApplicationPatch> changes) {
@@ -471,7 +470,13 @@ public class Server {
         }
 
         File resourcesApk = new File(workDir, Constants.RES_DIR + "/" + Constants.RESOURCE_APK_FILE_NAME);
-        FileUtils.write2file(patch.getBytes(),resourcesApk);
+        if (FileUtils.isLegalFile(resourcesApk)) {
+            resourcesApk.delete();
+
+            Log.e(Logging.LOG_TAG, "del old resources apk: " + resourcesApk);
+        }
+
+        FileUtils.write2file(patch.getBytes(),new File(workDir, Constants.RES_DIR + "/" + path));
 
         //noinspection ResourceType
         updateMode = Math.max(updateMode, UPDATE_MODE_WARM_SWAP);
@@ -484,12 +489,23 @@ public class Server {
         }
         try {
             File tempDexDir = new File(workDir, Constants.DEX_DIR + "/");
+
+            File oldDexFile = new File(tempDexDir,splitPatchPath(patch.getPath())[1]);
+            if (oldDexFile.exists()) {
+                oldDexFile.delete();
+                Log.e(Logging.LOG_TAG, "del oldDexFile: " + oldDexFile);
+            }
+
             FileUtils.write2file(patch.getBytes(),new File(tempDexDir,patch.getPath()));
         } catch (Throwable e) {
             Log.e(Logging.LOG_TAG, "Couldn't apply code changes", e);
             updateMode = UPDATE_MODE_COLD_SWAP;
         }
         return UPDATE_MODE_COLD_SWAP;
+    }
+
+    public static String[] splitPatchPath(String path) {
+        return path.split(Constants.RES_SPLIT_STR);
     }
 
     private void restart(int updateMode, boolean hasDex, boolean incrementalResources, boolean toast) {

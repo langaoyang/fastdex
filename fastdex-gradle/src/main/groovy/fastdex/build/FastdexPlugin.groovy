@@ -6,6 +6,7 @@ import com.android.build.gradle.internal.transforms.DexTransform
 import com.android.build.gradle.internal.transforms.JarMergingTransform
 import fastdex.build.task.FastdexCleanTask
 import fastdex.build.task.FastdexCreateMaindexlistFileTask
+import fastdex.build.task.FastdexInstantRunMarkTask
 import fastdex.build.task.FastdexInstantRunTask
 import fastdex.build.task.FastdexManifestTask
 import fastdex.build.task.FastdexPatchTask
@@ -199,7 +200,13 @@ class FastdexPlugin implements Plugin<Project> {
                     FastdexInstantRunTask fastdexInstantRunTask = project.tasks.create("fastdex${variantName}",FastdexInstantRunTask)
                     fastdexInstantRunTask.fastdexVariant = fastdexVariant
 
+                    FastdexInstantRunMarkTask fastdexInstantRunMarkTask = project.tasks.create("fastdexMarkFor${variantName}",FastdexInstantRunMarkTask)
+                    fastdexInstantRunMarkTask.fastdexVariant = fastdexVariant
+                    prepareTask.mustRunAfter fastdexInstantRunMarkTask
+
                     fastdexInstantRunTask.dependsOn variant.assemble
+                    fastdexInstantRunTask.dependsOn fastdexInstantRunMarkTask
+
                     fastdexVariant.fastdexInstantRunTask = fastdexInstantRunTask
 
                     project.getGradle().getTaskGraph().addTaskExecutionGraphListener(new TaskExecutionGraphListener() {

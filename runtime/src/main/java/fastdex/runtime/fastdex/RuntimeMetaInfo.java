@@ -129,21 +129,7 @@ public class RuntimeMetaInfo {
     public void save(Fastdex fastdex) {
         File metaInfoFile = new File(fastdex.fastdexDirectory, ShareConstants.META_INFO_FILENAME);
         try {
-            JSONObject jObj = new JSONObject();
-            try {
-                jObj.put("buildMillis",buildMillis);
-                jObj.put("variantName",variantName);
-                jObj.put("lastPatchPath",lastPatchPath);
-                jObj.put("patchPath",patchPath);
-                jObj.put("preparedPatchPath",preparedPatchPath);
-                jObj.put("lastSourceModified",lastSourceModified);
-
-                jObj.put("mergedDexVersion",mergedDexVersion);
-                jObj.put("patchDexVersion",patchDexVersion);
-                jObj.put("resourcesVersion",resourcesVersion);
-            } catch (JSONException e) {
-                e.printStackTrace();
-            }
+            JSONObject jObj = toJson();
 
             FileOutputStream outputStream = null;
             FileUtils.ensumeDir(metaInfoFile.getParentFile());
@@ -161,6 +147,26 @@ public class RuntimeMetaInfo {
             e.printStackTrace();
             Log.e(Logging.LOG_TAG,e.getMessage());
         }
+    }
+
+    public JSONObject toJson() {
+        JSONObject jObj = new JSONObject();
+        try {
+            jObj.put("buildMillis",buildMillis);
+            jObj.put("variantName",variantName);
+            jObj.put("lastPatchPath",lastPatchPath);
+            jObj.put("patchPath",patchPath);
+            jObj.put("preparedPatchPath",preparedPatchPath);
+            jObj.put("lastSourceModified",lastSourceModified);
+
+            jObj.put("mergedDexVersion",mergedDexVersion);
+            jObj.put("patchDexVersion",patchDexVersion);
+            jObj.put("resourcesVersion",resourcesVersion);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+        return jObj;
     }
 
     public static RuntimeMetaInfo load(Fastdex fastdex) {

@@ -62,11 +62,15 @@ public class MetaInfo {
         }
     }
 
+
     @Override
     public String toString() {
         return "MetaInfo{" +
                 "buildMillis=" + buildMillis +
                 ", variantName='" + variantName + '\'' +
+                ", mergedDexVersion=" + mergedDexVersion +
+                ", patchDexVersion=" + patchDexVersion +
+                ", resourcesVersion=" + resourcesVersion +
                 '}';
     }
 }
